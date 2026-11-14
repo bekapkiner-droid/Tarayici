@@ -298,17 +298,40 @@ namespace Tarayici
                 if (cur < bar.TabCount) bar.TabPages[cur].Text = Trunc(c.DocumentTitle, 22);
             };
             c.ContainsFullScreenElementChanged += (s, e) => { if (wv == web) SetFullscreen(c.ContainsFullScreenElement); };
-            wv.CoreWebView2Controller.AcceleratorKeyPressed += (s, e) =>
+            // Klavye kisayollari: sayfa odaktayken JS ile yakalanir
+            var _ = c.AddScriptToExecuteOnDocumentCreatedAsync(KeyScript);
+            c.WebMessageReceived += (s, e) =>
             {
-                if (e.KeyEventKind != CoreWebView2KeyEventKind.KeyDown &&
-                    e.KeyEventKind != CoreWebView2KeyEventKind.SystemKeyDown) return;
-                bool ctrl = (Control.ModifierKeys & Keys.Control) != 0;
-                var k = (Keys)e.VirtualKey;
-                if (ctrl && k == Keys.T) { e.Handled = true; BeginInvoke((Action)(() => Fire(NewTab(Home)))); }
-                else if (ctrl && k == Keys.W) { e.Handled = true; BeginInvoke((Action)(() => Fire(CloseTab(cur)))); }
-                else if (ctrl && k == Keys.L) { e.Handled = true; BeginInvoke((Action)(() => { addr.Focus(); addr.SelectAll(); })); }
-                else if (k == Keys.F5) { e.Handled = true; BeginInvoke((Action)(() => { if (web != null) web.Reload(); })); }
+                string m;
+                try { m = e.TryGetWebMessageAsString(); } catch { return; }
+                BeginInvoke((Action)(() => HandleKey(m)));
             };
+        }
+
+        const string KeyScript =
+            "document.addEventListener('keydown', function (e) {" +
+            "  if (e.ctrlKey && !e.shiftKey && !e.altKey) {" +
+            "    var k = (e.key || '').toLowerCase();" +
+            "    if (k === 't' || k === 'w' || k === 'l') {" +
+            "      e.preventDefault(); window.chrome.webview.postMessage(k);" +
+            "    }" +
+            "  }" +
+            "}, true);";
+
+        void HandleKey(string k)
+        {
+            if (k == "t") Fire(NewTab(Home));
+            else if (k == "w") Fire(CloseTab(cur));
+            else if (k == "l") { addr.Focus(); addr.SelectAll(); }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.T)) { HandleKey("t"); return true; }
+            if (keyData == (Keys.Control | Keys.W)) { HandleKey("w"); return true; }
+            if (keyData == (Keys.Control | Keys.L)) { HandleKey("l"); return true; }
+            if (keyData == Keys.F5) { if (web != null) web.Reload(); return true; }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         void SetFullscreen(bool on)
