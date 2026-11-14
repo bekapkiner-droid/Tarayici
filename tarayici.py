@@ -148,6 +148,7 @@ class Browser(QMainWindow):
         self.addr.returnPressed.connect(self.navigate)
         tb.addWidget(self.addr)
         tb.addAction("+", lambda: self.new_tab(HOME))
+        tb.addAction("Tanı", lambda: self.new_tab("chrome://gpu"))
         self.fav_menu = QMenu(self)
         self.fav_menu.aboutToShow.connect(self.build_fav_menu)
         fav_btn = tb.addAction("★ Favoriler")
