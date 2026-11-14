@@ -1,0 +1,5 @@
+__pycache__/
+.kurulum_tamam
+bin/
+obj/
+out/

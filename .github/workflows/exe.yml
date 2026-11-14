@@ -1,0 +1,37 @@
+name: Windows exe (Python yedek, elle)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pyinstaller
+      - run: pyinstaller --noconfirm --windowed --name Tarayici --icon logo.ico --add-data "logo.png;." tarayici.py
+      - name: Kullanilmayan dilleri sil (boyut kucultme)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path dist/Tarayici -Recurse -Filter *.pak |
+            Where-Object { $_.DirectoryName -like "*qtwebengine_locales" -and $_.Name -notin @("en-US.pak", "tr.pak") } |
+            Remove-Item -Force
+      - run: Compress-Archive -Path dist/Tarayici -DestinationPath Tarayici-Windows-Python.zip -CompressionLevel Optimal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tarayici-Windows-Python
+          path: Tarayici-Windows-Python.zip
+          compression-level: 0
+      - name: Releases sayfasina yukle
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete windows-python-guncel -y --cleanup-tag || true
+          gh release create windows-python-guncel Tarayici-Windows-Python.zip --title "Windows (Python yedek sürüm)" --notes "En son derleme" --target ${{ github.sha }}

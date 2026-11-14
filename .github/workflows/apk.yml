@@ -1,0 +1,34 @@
+name: Android apk
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/low-ram-browser-5417a0, main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+      - run: gradle -p android assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk Tarayici.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tarayici-Android
+          path: Tarayici.apk
+      - name: Releases sayfasina yukle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-guncel -y --cleanup-tag || true
+          gh release create android-guncel Tarayici.apk --title "Android - güncel sürüm" --notes "En son derleme" --target ${{ github.sha }}

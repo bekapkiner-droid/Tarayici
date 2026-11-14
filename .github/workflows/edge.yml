@@ -1,0 +1,33 @@
+name: Windows exe (ana surum)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/low-ram-browser-5417a0, main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: dotnet publish windows-edge/TarayiciEdge.csproj -c Release -o out
+      - run: Compress-Archive -Path out/* -DestinationPath Tarayici-Windows.zip -CompressionLevel Optimal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tarayici-Windows
+          path: Tarayici-Windows.zip
+          compression-level: 0
+      - name: Releases sayfasina yukle
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete windows-guncel -y --cleanup-tag || true
+          gh release delete edge-guncel -y --cleanup-tag || true
+          gh release create windows-guncel Tarayici-Windows.zip --title "Windows - güncel sürüm" --notes "En son derleme" --target ${{ github.sha }}
