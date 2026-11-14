@@ -29,10 +29,13 @@ _FLAGS = [
     "--js-flags=--max-old-space-size=256",
     "--enable-gpu-rasterization",
     "--ignore-gpu-blocklist",
-    "--disable-features=Translate,OptimizationHints,MediaRouter,"
+    "--disable-features=Translate,OptimizationHints,MediaRouter,BackForwardCache,"
     "InterestFeedContentSuggestions,AutofillServerCommunication,"
     "CertificateTransparencyComponentUpdater",
-    "--enable-features=BackForwardCache:enabled/false",
+    # Videoyu ekran kartina coz-durmek icin (Windows / Intel-NVIDIA)
+    "--use-angle=d3d11",
+    "--enable-accelerated-video-decode",
+    "--enable-features=D3D11VideoDecoder,PlatformHardwareDecoding",
 ]
 # Ekran karti varsayilan acik (islemci yukunu dusurur). Cok eski/sorunlu
 # bilgisayarlarda TARAYICI_GPU_KAPALI=1 ile kapatilabilir.
