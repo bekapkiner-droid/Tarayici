@@ -9,6 +9,7 @@ RAM tasarrufu stratejisi:
   * Reklam/izleyici alan adlari engellenir, istege bagli resimsiz mod.
   * Arka planda 5 dk bos kalan sekmeler zaten bosaltilmis durumdadir.
 """
+import json
 import os
 import sys
 
@@ -41,12 +42,14 @@ from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
                                      QWebEngineSettings,
                                      QWebEngineUrlRequestInterceptor)
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import (QApplication, QLineEdit, QMainWindow,
+from PySide6.QtWidgets import (QApplication, QLineEdit, QMainWindow, QMenu,
                                QStackedWidget, QTabBar, QToolBar, QVBoxLayout,
                                QWidget, QLabel)
 
-HOME = "https://duckduckgo.com/html"  # hafif, JS'siz arama sayfasi
-SEARCH = "https://duckduckgo.com/html/?q={}"
+HOME = "https://www.google.com"
+SEARCH = "https://www.google.com/search?q={}"
+DATA_DIR = os.path.join(os.path.expanduser("~"), ".tarayici")
+BOOKMARKS_FILE = os.path.join(DATA_DIR, "favoriler.json")
 
 BLOCKED = (
     "doubleclick.net", "googlesyndication.com", "googleadservices.com",
@@ -85,11 +88,15 @@ class Browser(QMainWindow):
         self.no_images = False
 
         # Disk'e yazmayan, kucuk onbellekli profil
-        self.profile = QWebEngineProfile(self)  # off-the-record
+        # Giris bilgileri (cerezler) diskte saklanir; onbellek yalnizca bellekte.
+        os.makedirs(DATA_DIR, exist_ok=True)
+        self.profile = QWebEngineProfile("tarayici", self)
+        self.profile.setPersistentStoragePath(os.path.join(DATA_DIR, "profil"))
         self.profile.setHttpCacheType(QWebEngineProfile.MemoryHttpCache)
         self.profile.setHttpCacheMaximumSize(16 * 1024 * 1024)
         self.profile.setPersistentCookiesPolicy(
-            QWebEngineProfile.NoPersistentCookies)
+            QWebEngineProfile.ForcePersistentCookies)
+        self.bookmarks = self.load_bookmarks()
         self.blocker = Blocker(self)
         self.profile.setUrlRequestInterceptor(self.blocker)
 
@@ -110,6 +117,11 @@ class Browser(QMainWindow):
         self.addr.returnPressed.connect(self.navigate)
         tb.addWidget(self.addr)
         tb.addAction("+", lambda: self.new_tab(HOME))
+        self.fav_menu = QMenu(self)
+        self.fav_menu.aboutToShow.connect(self.build_fav_menu)
+        fav_btn = tb.addAction("★ Favoriler")
+        fav_btn.triggered.connect(lambda: self.fav_menu.exec(
+            self.mapToGlobal(self.rect().topLeft()) + self.addr.pos() + self.addr.rect().bottomLeft()))
         self.img_act = QAction("Resimler: Açık", self)
         self.img_act.triggered.connect(self.toggle_images)
         tb.addAction(self.img_act)
@@ -197,7 +209,7 @@ class Browser(QMainWindow):
         s.setAttribute(QWebEngineSettings.AutoLoadIconsForPage, False)
         s.setAttribute(QWebEngineSettings.ScrollAnimatorEnabled, False)
         s.setAttribute(QWebEngineSettings.PlaybackRequiresUserGesture, True)
-        s.setAttribute(QWebEngineSettings.LocalStorageEnabled, False)
+        s.setAttribute(QWebEngineSettings.LocalStorageEnabled, True)
         s.setAttribute(QWebEngineSettings.AutoLoadImages, not self.no_images)
         v.titleChanged.connect(self.on_title)
         v.urlChanged.connect(self.on_url)
@@ -217,6 +229,46 @@ class Browser(QMainWindow):
     def on_url(self, u):
         self.addr.setText(u.toString())
         self.addr.setCursorPosition(0)
+
+    # ---- favoriler ------------------------------------------------------
+    def load_bookmarks(self):
+        try:
+            with open(BOOKMARKS_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return []
+
+    def save_bookmarks(self):
+        with open(BOOKMARKS_FILE, "w", encoding="utf-8") as f:
+            json.dump(self.bookmarks, f, ensure_ascii=False, indent=1)
+
+    def build_fav_menu(self):
+        m = self.fav_menu
+        m.clear()
+        m.addAction("★ Bu sayfayı favorilere ekle", self.add_bookmark)
+        if self.bookmarks:
+            m.addSeparator()
+            for b in self.bookmarks:
+                m.addAction(b["title"][:40] or b["url"][:40],
+                            lambda u=b["url"]: self.view and self.view.load(QUrl(u)))
+            m.addSeparator()
+            rm = m.addMenu("Favoriden sil")
+            for b in self.bookmarks:
+                rm.addAction(b["title"][:40] or b["url"][:40],
+                             lambda b=b: self.remove_bookmark(b))
+
+    def add_bookmark(self):
+        if not self.view:
+            return
+        url = self.view.url().toString()
+        if not any(b["url"] == url for b in self.bookmarks):
+            self.bookmarks.append({"title": self.view.title() or url, "url": url})
+            self.save_bookmarks()
+
+    def remove_bookmark(self, b):
+        if b in self.bookmarks:
+            self.bookmarks.remove(b)
+            self.save_bookmarks()
 
     # ---- gezinti --------------------------------------------------------
     def navigate(self):
