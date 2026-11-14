@@ -29,4 +29,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete windows-guncel -y --cleanup-tag || true
+          gh release delete edge-guncel -y --cleanup-tag || true
           gh release create windows-guncel Tarayici-Windows.zip --title "Windows - güncel sürüm" --notes "En son derleme" --target ${{ github.sha }}
