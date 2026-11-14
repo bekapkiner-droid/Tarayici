@@ -37,7 +37,7 @@ os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", " ".join([
 ]))
 
 from PySide6.QtCore import QUrl, Qt
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QIcon, QKeySequence
 from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
                                      QWebEngineSettings,
                                      QWebEngineUrlRequestInterceptor)
@@ -294,6 +294,8 @@ class Browser(QMainWindow):
 
 def main():
     app = QApplication(sys.argv[:1])
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    app.setWindowIcon(QIcon(os.path.join(base, "logo.png")))
     w = Browser()
     w.show()
     sys.exit(app.exec())
