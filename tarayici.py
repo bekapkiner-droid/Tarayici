@@ -77,7 +77,14 @@ H264_JS = r"""
   var orig = ms.isTypeSupported.bind(ms);
   if (!orig('video/mp4; codecs="avc1.42E01E"')) return;
   var bad = /vp0?9|av01|av1/i;
-  ms.isTypeSupported = function (t) { return bad.test(t) ? false : orig(t); };
+  // 30 kareden fazlasini ve 720p ustunu reddet (islemciyi rahatlatir)
+  function heavy(t) {
+    var f = /framerate=(\d+)/i.exec(t), h = /height=(\d+)/i.exec(t);
+    return (f && +f[1] > 30) || (h && +h[1] > 720);
+  }
+  ms.isTypeSupported = function (t) {
+    return (bad.test(t) || heavy(t)) ? false : orig(t);
+  };
   var can = HTMLMediaElement.prototype.canPlayType;
   HTMLMediaElement.prototype.canPlayType = function (t) {
     return bad.test(t) ? "" : can.call(this, t);
