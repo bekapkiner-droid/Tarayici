@@ -5,6 +5,9 @@ on:
   push:
     branches: [claude/low-ram-browser-5417a0, main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -15,8 +18,22 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt pyinstaller
       - run: pyinstaller --noconfirm --windowed --name Tarayici --icon logo.ico --add-data "logo.png;." tarayici.py
-      - run: Compress-Archive -Path dist/Tarayici -DestinationPath Tarayici-Windows.zip
+      - name: Kullanilmayan dilleri sil (boyut kucultme)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path dist/Tarayici -Recurse -Filter *.pak |
+            Where-Object { $_.DirectoryName -like "*qtwebengine_locales" -and $_.Name -notin @("en-US.pak", "tr.pak") } |
+            Remove-Item -Force
+      - run: Compress-Archive -Path dist/Tarayici -DestinationPath Tarayici-Windows.zip -CompressionLevel Optimal
       - uses: actions/upload-artifact@v4
         with:
           name: Tarayici-Windows
           path: Tarayici-Windows.zip
+          compression-level: 0
+      - name: Releases sayfasina yukle
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete windows-guncel -y --cleanup-tag || true
+          gh release create windows-guncel Tarayici-Windows.zip --title "Windows - güncel sürüm" --notes "En son derleme" --target ${{ github.sha }}
