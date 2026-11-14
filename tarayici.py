@@ -43,6 +43,7 @@ os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", " ".join(_FLAGS))
 from PySide6.QtCore import QUrl, Qt
 from PySide6.QtGui import QAction, QIcon, QKeySequence
 from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
+                                     QWebEngineScript,
                                      QWebEngineSettings,
                                      QWebEngineUrlRequestInterceptor)
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -64,6 +65,25 @@ BLOCKED = (
     "amazon-adsystem.com", "adsrvr.org", "moatads.com", "yandex.ru/metrika",
     "mc.yandex.", "ads-twitter.com", "analytics.tiktok.com",
 )
+
+
+# YouTube'a VP9/AV1 yerine H.264 sunmasini soyler. Ekran kartlari H.264'u
+# donanimla cozer, boylece islemci yuku ciddi sekilde duser. H.264 destegi
+# yoksa hicbir sey yapmaz (video bozulmasin diye).
+H264_JS = r"""
+(function () {
+  var ms = window.MediaSource;
+  if (!ms || !ms.isTypeSupported) return;
+  var orig = ms.isTypeSupported.bind(ms);
+  if (!orig('video/mp4; codecs="avc1.42E01E"')) return;
+  var bad = /vp0?9|av01|av1/i;
+  ms.isTypeSupported = function (t) { return bad.test(t) ? false : orig(t); };
+  var can = HTMLMediaElement.prototype.canPlayType;
+  HTMLMediaElement.prototype.canPlayType = function (t) {
+    return bad.test(t) ? "" : can.call(this, t);
+  };
+})();
+"""
 
 
 class Blocker(QWebEngineUrlRequestInterceptor):
@@ -100,6 +120,13 @@ class Browser(QMainWindow):
         self.profile.setHttpCacheMaximumSize(16 * 1024 * 1024)
         self.profile.setPersistentCookiesPolicy(
             QWebEngineProfile.ForcePersistentCookies)
+        script = QWebEngineScript()
+        script.setName("h264")
+        script.setSourceCode(H264_JS)
+        script.setInjectionPoint(QWebEngineScript.DocumentCreation)
+        script.setWorldId(QWebEngineScript.MainWorld)
+        script.setRunsOnSubFrames(True)
+        self.profile.scripts().insert(script)
         self.bookmarks = self.load_bookmarks()
         self.blocker = Blocker(self)
         self.profile.setUrlRequestInterceptor(self.blocker)
