@@ -22,3 +22,6 @@ Sekmeye dönünce sayfa yeniden yüklenir; oturum/eklenti desteği yok.
 
 ## Komut satırı olmadan açma (Windows)
 `Tarayici.bat` dosyasına çift tıkla. İlk seferde gerekli paketleri kendisi kurar, sonra tarayıcıyı açar. Masaüstü kısayolu için dosyaya sağ tıkla → "Gönder" → "Masaüstü (kısayol oluştur)".
+
+## Android (APK)
+`android/` klasöründe aynı mantıkla çalışan Android uygulaması var. GitHub → Actions → "Android apk" çalışmasının Artifacts bölümünden `Tarayici-Android` indirilir, içindeki `app-debug.apk` telefona kurulur (bilinmeyen kaynak izni gerekir).
