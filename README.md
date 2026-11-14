@@ -19,3 +19,6 @@ Ctrl+T yeni sekme · Ctrl+W kapat · Ctrl+L adres çubuğu · F5 yenile
 
 ## Bilinen ödünler
 Sekmeye dönünce sayfa yeniden yüklenir; oturum/eklenti desteği yok.
+
+## Komut satırı olmadan açma (Windows)
+`Tarayici.bat` dosyasına çift tıkla. İlk seferde gerekli paketleri kendisi kurar, sonra tarayıcıyı açar. Masaüstü kısayolu için dosyaya sağ tıkla → "Gönder" → "Masaüstü (kısayol oluştur)".
