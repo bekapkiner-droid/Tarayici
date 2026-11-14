@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebChromeClient
@@ -47,6 +48,8 @@ class MainActivity : Activity() {
     private var cur = 0
     private var web: WebView? = null
     private var noImages = false
+    private var customView: View? = null
+    private var customCb: WebChromeClient.CustomViewCallback? = null
 
     private lateinit var holder: FrameLayout
     private lateinit var addr: EditText
@@ -218,6 +221,27 @@ class MainActivity : Activity() {
             }
         }
         w.webChromeClient = object : WebChromeClient() {
+            @Suppress("DEPRECATION")
+            override fun onShowCustomView(view: View, cb: CustomViewCallback) {
+                if (customView != null) { cb.onCustomViewHidden(); return }
+                customView = view
+                customCb = cb
+                (window.decorView as FrameLayout).addView(view, FrameLayout.LayoutParams(-1, -1))
+                window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
+            }
+
+            @Suppress("DEPRECATION")
+            override fun onHideCustomView() {
+                val v = customView ?: return
+                (window.decorView as FrameLayout).removeView(v)
+                customView = null
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+                customCb?.onCustomViewHidden()
+                customCb = null
+            }
+
             override fun onReceivedTitle(v: WebView, t: String?) {
                 if (v === web && cur in tabs.indices && !t.isNullOrBlank()) tabs[cur].title = t
             }
@@ -244,6 +268,7 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         val w = web
+        if (customView != null) { w?.webChromeClient?.onHideCustomView(); return }
         when {
             w != null && w.canGoBack() -> w.goBack()
             tabs.size > 1 -> closeTab(cur)

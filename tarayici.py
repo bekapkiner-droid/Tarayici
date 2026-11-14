@@ -106,7 +106,7 @@ class Browser(QMainWindow):
         self.bar.currentChanged.connect(self.switch_tab)
         self.bar.tabCloseRequested.connect(self.close_tab)
 
-        tb = QToolBar()
+        tb = self.tb = QToolBar()
         tb.setMovable(False)
         self.addToolBar(tb)
         self.act_back = tb.addAction("◀", lambda: self.view and self.view.back())
@@ -211,6 +211,8 @@ class Browser(QMainWindow):
         s.setAttribute(QWebEngineSettings.PlaybackRequiresUserGesture, True)
         s.setAttribute(QWebEngineSettings.LocalStorageEnabled, True)
         s.setAttribute(QWebEngineSettings.AutoLoadImages, not self.no_images)
+        s.setAttribute(QWebEngineSettings.FullScreenSupportEnabled, True)
+        page.fullScreenRequested.connect(self.on_fullscreen)
         v.titleChanged.connect(self.on_title)
         v.urlChanged.connect(self.on_url)
         # target=_blank linkleri ayni sekmede ac (yeni render nesnesi yok)
@@ -220,6 +222,18 @@ class Browser(QMainWindow):
         self.holder.setCurrentWidget(v)
         self.addr.setText(url)
         v.load(QUrl(url))
+
+    def on_fullscreen(self, req):
+        """YouTube vb. tam ekran istegi: arayuzu gizle, pencereyi tam ekran yap."""
+        req.accept()
+        on = req.toggleOn()
+        self.bar.setVisible(not on)
+        self.tb.setVisible(not on)
+        self.statusBar().setVisible(not on)
+        if on:
+            self.showFullScreen()
+        else:
+            self.showNormal()
 
     def on_title(self, t):
         if self.current >= 0:
