@@ -9,7 +9,7 @@
 
 ## RAM'i nasıl azaltır?
 - **Aynı anda yalnızca 1 sayfa canlı**: arka plan sekmeleri sadece URL/başlık tutar (KB'lar); sekme değişince eski sayfa yok edilir. Chrome'daki en büyük RAM kaybı (her sekme = ayrı işlem) ortadan kalkar.
-- Tek render işlemi, GPU kapalı, JS heap 192 MB ile sınırlı, arka plan servisleri kapalı.
+- Tek render işlemi, JS heap 256 MB ile sınırlı, GPU açık (işlemci yükü düşük), arka plan servisleri kapalı.
 - Disk önbelleği yok, bellek önbelleği 16 MB. Giriş bilgileri (çerezler) ve favoriler `~/.tarayici` klasöründe saklanır.
 - Reklam/izleyici engelleme, isteğe bağlı **resimsiz mod** (araç çubuğundaki düğme).
 - Linkler (`target=_blank`) aynı sekmede açılır.

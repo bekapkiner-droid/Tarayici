@@ -14,11 +14,8 @@ import os
 import sys
 
 # Chromium bayraklari QApplication'dan ONCE ayarlanmali.
-os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", " ".join([
+_FLAGS = [
     "--renderer-process-limit=1",
-    "--disable-gpu",
-    "--disable-gpu-compositing",
-    "--disable-software-rasterizer",
     "--disable-extensions",
     "--disable-background-networking",
     "--disable-sync",
@@ -29,12 +26,19 @@ os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", " ".join([
     "--no-pings",
     "--disk-cache-size=1",
     "--media-cache-size=1",
-    "--js-flags=--max-old-space-size=192 --lite-mode",
+    "--js-flags=--max-old-space-size=256",
+    "--enable-gpu-rasterization",
+    "--ignore-gpu-blocklist",
     "--disable-features=Translate,OptimizationHints,MediaRouter,"
     "InterestFeedContentSuggestions,AutofillServerCommunication,"
     "CertificateTransparencyComponentUpdater",
     "--enable-features=BackForwardCache:enabled/false",
-]))
+]
+# Ekran karti varsayilan acik (islemci yukunu dusurur). Cok eski/sorunlu
+# bilgisayarlarda TARAYICI_GPU_KAPALI=1 ile kapatilabilir.
+if os.environ.get("TARAYICI_GPU_KAPALI"):
+    _FLAGS += ["--disable-gpu", "--disable-software-rasterizer"]
+os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", " ".join(_FLAGS))
 
 from PySide6.QtCore import QUrl, Qt
 from PySide6.QtGui import QAction, QIcon, QKeySequence
@@ -205,7 +209,7 @@ class Browser(QMainWindow):
         s = page.settings()
         s.setAttribute(QWebEngineSettings.PluginsEnabled, False)
         s.setAttribute(QWebEngineSettings.WebGLEnabled, False)
-        s.setAttribute(QWebEngineSettings.Accelerated2dCanvasEnabled, False)
+        s.setAttribute(QWebEngineSettings.Accelerated2dCanvasEnabled, True)
         s.setAttribute(QWebEngineSettings.AutoLoadIconsForPage, False)
         s.setAttribute(QWebEngineSettings.ScrollAnimatorEnabled, False)
         s.setAttribute(QWebEngineSettings.PlaybackRequiresUserGesture, True)
