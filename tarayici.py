@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""Tarayici - az RAM kullanan hafif tarayici.
+
+RAM tasarrufu stratejisi:
+  * Ayni anda SADECE BIR sayfa (QWebEngineView) canlidir. Diger sekmeler
+    yalnizca URL/baslik tutar (birkac KB). Sekme degisince eski sayfa yok edilir.
+  * Tek render islemi, GPU kapali, kucuk JS heap, arka plan servisleri kapali.
+  * Disk onbellegi yok (off-the-record profil), bellek onbellegi kucuk.
+  * Reklam/izleyici alan adlari engellenir, istege bagli resimsiz mod.
+  * Arka planda 5 dk bos kalan sekmeler zaten bosaltilmis durumdadir.
+"""
+import os
+import sys
+
+# Chromium bayraklari QApplication'dan ONCE ayarlanmali.
+os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", " ".join([
+    "--renderer-process-limit=1",
+    "--disable-gpu",
+    "--disable-gpu-compositing",
+    "--disable-software-rasterizer",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--disable-sync",
+    "--disable-translate",
+    "--disable-default-apps",
+    "--disable-breakpad",
+    "--disable-component-update",
+    "--no-pings",
+    "--disk-cache-size=1",
+    "--media-cache-size=1",
+    "--js-flags=--max-old-space-size=192 --lite-mode",
+    "--disable-features=Translate,OptimizationHints,MediaRouter,"
+    "InterestFeedContentSuggestions,AutofillServerCommunication,"
+    "CertificateTransparencyComponentUpdater",
+    "--enable-features=BackForwardCache:enabled/false",
+]))
+
+from PySide6.QtCore import QUrl, Qt
+from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
+                                     QWebEngineSettings,
+                                     QWebEngineUrlRequestInterceptor)
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import (QApplication, QLineEdit, QMainWindow,
+                               QStackedWidget, QTabBar, QToolBar, QVBoxLayout,
+                               QWidget, QLabel)
+
+HOME = "https://duckduckgo.com/html"  # hafif, JS'siz arama sayfasi
+SEARCH = "https://duckduckgo.com/html/?q={}"
+
+BLOCKED = (
+    "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+    "google-analytics.com", "googletagmanager.com", "googletagservices.com",
+    "adservice.google.", "facebook.net", "connect.facebook.com",
+    "scorecardresearch.com", "quantserve.com", "taboola.com", "outbrain.com",
+    "adnxs.com", "criteo.com", "hotjar.com", "mixpanel.com", "segment.io",
+    "amazon-adsystem.com", "adsrvr.org", "moatads.com", "yandex.ru/metrika",
+    "mc.yandex.", "ads-twitter.com", "analytics.tiktok.com",
+)
+
+
+class Blocker(QWebEngineUrlRequestInterceptor):
+    def interceptRequest(self, info):
+        host = info.requestUrl().host()
+        if any(b in host for b in BLOCKED):
+            info.block(True)
+
+
+class Tab:
+    __slots__ = ("url", "title")
+
+    def __init__(self, url):
+        self.url = url
+        self.title = "Yeni sekme"
+
+
+class Browser(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Tarayici")
+        self.resize(1100, 750)
+        self.tabs: list[Tab] = []
+        self.current = -1
+        self.view: QWebEngineView | None = None
+        self.no_images = False
+
+        # Disk'e yazmayan, kucuk onbellekli profil
+        self.profile = QWebEngineProfile(self)  # off-the-record
+        self.profile.setHttpCacheType(QWebEngineProfile.MemoryHttpCache)
+        self.profile.setHttpCacheMaximumSize(16 * 1024 * 1024)
+        self.profile.setPersistentCookiesPolicy(
+            QWebEngineProfile.NoPersistentCookies)
+        self.blocker = Blocker(self)
+        self.profile.setUrlRequestInterceptor(self.blocker)
+
+        # Arayuz
+        self.bar = QTabBar(movable=False, tabsClosable=True, expanding=False,
+                           documentMode=True)
+        self.bar.currentChanged.connect(self.switch_tab)
+        self.bar.tabCloseRequested.connect(self.close_tab)
+
+        tb = QToolBar()
+        tb.setMovable(False)
+        self.addToolBar(tb)
+        self.act_back = tb.addAction("◀", lambda: self.view and self.view.back())
+        self.act_fwd = tb.addAction("▶", lambda: self.view and self.view.forward())
+        tb.addAction("⟳", lambda: self.view and self.view.reload())
+        self.addr = QLineEdit()
+        self.addr.setPlaceholderText("Adres yaz veya ara…")
+        self.addr.returnPressed.connect(self.navigate)
+        tb.addWidget(self.addr)
+        tb.addAction("+", lambda: self.new_tab(HOME))
+        self.img_act = QAction("Resimler: Açık", self)
+        self.img_act.triggered.connect(self.toggle_images)
+        tb.addAction(self.img_act)
+
+        self.holder = QStackedWidget()
+        self.status = QLabel("")
+        central = QWidget()
+        lay = QVBoxLayout(central)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        lay.addWidget(self.bar)
+        lay.addWidget(self.holder, 1)
+        self.setCentralWidget(central)
+        self.statusBar().addPermanentWidget(self.status)
+
+        for key, fn in (("Ctrl+T", lambda: self.new_tab(HOME)),
+                        ("Ctrl+W", lambda: self.close_tab(self.bar.currentIndex())),
+                        ("Ctrl+L", lambda: (self.addr.setFocus(), self.addr.selectAll())),
+                        ("F5", lambda: self.view and self.view.reload())):
+            a = QAction(self)
+            a.setShortcut(QKeySequence(key))
+            a.triggered.connect(fn)
+            self.addAction(a)
+
+        self.new_tab(sys.argv[1] if len(sys.argv) > 1 else HOME)
+
+    # ---- sekmeler -------------------------------------------------------
+    def new_tab(self, url):
+        self.tabs.append(Tab(url))
+        i = self.bar.addTab("Yeni sekme")
+        self.bar.setCurrentIndex(i)  # switch_tab tetiklenir
+        if self.current != i:
+            self.switch_tab(i)
+
+    def switch_tab(self, i):
+        if i < 0 or i >= len(self.tabs) or i == self.current and self.view:
+            return
+        self.save_state()
+        self.drop_view()
+        self.current = i
+        self.make_view(self.tabs[i].url)
+
+    def close_tab(self, i):
+        if len(self.tabs) == 1:
+            self.close()
+            return
+        was_current = i == self.current
+        del self.tabs[i]
+        self.bar.blockSignals(True)
+        self.bar.removeTab(i)
+        self.bar.blockSignals(False)
+        if was_current:
+            self.drop_view()
+            self.current = -1
+            self.bar.blockSignals(True)
+            self.bar.setCurrentIndex(max(0, i - 1))
+            self.bar.blockSignals(False)
+            self.switch_tab(self.bar.currentIndex())
+        elif i < self.current:
+            self.current -= 1
+
+    def save_state(self):
+        if self.view and 0 <= self.current < len(self.tabs):
+            self.tabs[self.current].url = self.view.url().toString()
+
+    def drop_view(self):
+        """Eski sayfayi tamamen yok et -> render bellegi iade edilir."""
+        if not self.view:
+            return
+        v, self.view = self.view, None
+        self.holder.removeWidget(v)
+        page = v.page()
+        v.setPage(None)
+        page.deleteLater()
+        v.deleteLater()
+
+    def make_view(self, url):
+        v = QWebEngineView()
+        page = QWebEnginePage(self.profile, v)
+        v.setPage(page)
+        s = page.settings()
+        s.setAttribute(QWebEngineSettings.PluginsEnabled, False)
+        s.setAttribute(QWebEngineSettings.WebGLEnabled, False)
+        s.setAttribute(QWebEngineSettings.Accelerated2dCanvasEnabled, False)
+        s.setAttribute(QWebEngineSettings.AutoLoadIconsForPage, False)
+        s.setAttribute(QWebEngineSettings.ScrollAnimatorEnabled, False)
+        s.setAttribute(QWebEngineSettings.PlaybackRequiresUserGesture, True)
+        s.setAttribute(QWebEngineSettings.LocalStorageEnabled, False)
+        s.setAttribute(QWebEngineSettings.AutoLoadImages, not self.no_images)
+        v.titleChanged.connect(self.on_title)
+        v.urlChanged.connect(self.on_url)
+        # target=_blank linkleri ayni sekmede ac (yeni render nesnesi yok)
+        page.createWindow = lambda _t: page
+        self.view = v
+        self.holder.addWidget(v)
+        self.holder.setCurrentWidget(v)
+        self.addr.setText(url)
+        v.load(QUrl(url))
+
+    def on_title(self, t):
+        if self.current >= 0:
+            self.tabs[self.current].title = t
+            self.bar.setTabText(self.current, (t or "Sekme")[:22])
+
+    def on_url(self, u):
+        self.addr.setText(u.toString())
+        self.addr.setCursorPosition(0)
+
+    # ---- gezinti --------------------------------------------------------
+    def navigate(self):
+        t = self.addr.text().strip()
+        if not t:
+            return
+        if " " in t or ("." not in t and "://" not in t and not t.startswith("localhost")):
+            from urllib.parse import quote_plus
+            t = SEARCH.format(quote_plus(t))
+        elif "://" not in t:
+            t = "https://" + t
+        if self.view:
+            self.view.load(QUrl(t))
+
+    def toggle_images(self):
+        self.no_images = not self.no_images
+        self.img_act.setText("Resimler: Kapalı" if self.no_images else "Resimler: Açık")
+        if self.view:
+            self.view.page().settings().setAttribute(
+                QWebEngineSettings.AutoLoadImages, not self.no_images)
+            self.view.reload()
+
+
+def main():
+    app = QApplication(sys.argv[:1])
+    w = Browser()
+    w.show()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
