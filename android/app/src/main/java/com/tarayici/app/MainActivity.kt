@@ -76,13 +76,13 @@ class MainActivity : Activity() {
     // ---- arayuz ----------------------------------------------------------
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    private fun btn(text: String, onClick: () -> Unit) = Button(this).apply {
+    private fun btn(text: String, onClick: (View) -> Unit) = Button(this).apply {
         this.text = text
         isAllCaps = false
         minWidth = 0
         minimumWidth = dp(44)
         setPadding(dp(4), 0, dp(4), 0)
-        setOnClickListener { onClick() }
+        setOnClickListener { onClick(it) }
     }
 
     private fun buildUi() {
