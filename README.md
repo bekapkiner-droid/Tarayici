@@ -1,27 +1,27 @@
-# Tarayici
+# Tarayıcı
 
-8 GB RAM'li bilgisayarlar için az bellek kullanan hafif tarayıcı (Python + Qt WebEngine).
+Az RAM kullanan hafif tarayıcı. 8 GB RAM'li bilgisayarlar için.
 
-## Kurulum (Windows)
-1. Python 3.10+ kur (python.org, "Add to PATH" işaretli).
-2. `pip install -r requirements.txt`
-3. `python tarayici.py` (veya `python tarayici.py https://ornek.com`)
+## Windows (ana sürüm)
+1. [Releases](../../releases) sayfasından **Tarayici-Windows.zip** dosyasını indir (yaklaşık 0,4 MB).
+2. ZIP'i bir klasöre **tamamen çıkar** (WinRAR'ın içinden açma).
+3. **Tarayici.exe** dosyasına çift tıkla.
 
-## RAM'i nasıl azaltır?
-- **Aynı anda yalnızca 1 sayfa canlı**: arka plan sekmeleri sadece URL/başlık tutar (KB'lar); sekme değişince eski sayfa yok edilir. Chrome'daki en büyük RAM kaybı (her sekme = ayrı işlem) ortadan kalkar.
-- Tek render işlemi, JS heap 256 MB ile sınırlı, GPU açık (işlemci yükü düşük), arka plan servisleri kapalı.
-- Disk önbelleği yok, bellek önbelleği 16 MB. Giriş bilgileri (çerezler) ve favoriler `~/.tarayici` klasöründe saklanır.
-- Reklam/izleyici engelleme, isteğe bağlı **resimsiz mod** (araç çubuğundaki düğme).
-- Linkler (`target=_blank`) aynı sekmede açılır.
+Windows'un kendi Edge motorunu (WebView2) kullanır. Windows 11'de hazır gelir; yoksa uygulama indirme adresini gösterir.
 
-## Kısayollar
-Ctrl+T yeni sekme · Ctrl+W kapat · Ctrl+L adres çubuğu · F5 yenile
+**RAM'i nasıl azaltır?** Aynı anda yalnızca bir sayfa canlıdır, diğer sekmeler sadece adres/başlık tutar. Reklam ve izleyiciler engellenir, resimler isteğe bağlı kapatılır. Giriş bilgileri ve favoriler `~/.tarayici` klasöründe saklanır, sekmeler kapanıp açılınca geri gelir.
 
-## Bilinen ödünler
-Sekmeye dönünce sayfa yeniden yüklenir; oturum/eklenti desteği yok.
+**Kısayollar:** Ctrl+T yeni sekme · Ctrl+W kapat · Ctrl+L adres çubuğu · F5 yenile
 
-## Komut satırı olmadan açma (Windows)
-`Tarayici.bat` dosyasına çift tıkla. İlk seferde gerekli paketleri kendisi kurar, sonra tarayıcıyı açar. Masaüstü kısayolu için dosyaya sağ tıkla → "Gönder" → "Masaüstü (kısayol oluştur)".
+**İpucu:** İşlemci yüksekse YouTube'da dişli (⚙) menüsünden kaliteyi 720p yap. Ekran kartı seçimi için: Ayarlar → Sistem → Ekran → Grafikler bölümünde Tarayici.exe'yi "Güç tasarrufu" yapmak Optimus'lu dizüstülerde işe yarar.
 
-## Android (APK)
-`android/` klasöründe aynı mantıkla çalışan Android uygulaması var. GitHub → Actions → "Android apk" çalışmasının Artifacts bölümünden `Tarayici-Android` indirilir, içindeki `app-debug.apk` telefona kurulur (bilinmeyen kaynak izni gerekir).
+## Android
+Releases sayfasından **Tarayici.apk** indirip telefona kur (bilinmeyen kaynak izni gerekir). Kaynak: `android/`.
+
+## Yedek: Python sürümü
+`tarayici.py` (Qt WebEngine). Kurulum: `pip install -r requirements.txt`, sonra `python tarayici.py` veya `Tarayici.bat`. Elle derlenen exe: Actions → "Windows exe (Python yedek, elle)".
+
+## Klasörler
+- `windows-edge/` — ana Windows sürümü (C#, WebView2)
+- `android/` — Android uygulaması
+- `tarayici.py` — Python yedek sürümü
