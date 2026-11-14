@@ -71,7 +71,8 @@ BLOCKED = (
 
 
 # YouTube'a VP9/AV1 yerine H.264 sunmasini soyler. Ekran kartlari H.264'u
-# donanimla cozer, boylece islemci yuku ciddi sekilde duser. H.264 destegi
+# donanimla cozer, boylece islemci yuku duser. Cozunurluk/kare siniri YOK
+# (H.264 ile YouTube en fazla 1080p sunar). H.264 destegi
 # yoksa hicbir sey yapmaz (video bozulmasin diye).
 H264_JS = r"""
 (function () {
@@ -80,14 +81,7 @@ H264_JS = r"""
   var orig = ms.isTypeSupported.bind(ms);
   if (!orig('video/mp4; codecs="avc1.42E01E"')) return;
   var bad = /vp0?9|av01|av1/i;
-  // 30 kareden fazlasini ve 720p ustunu reddet (islemciyi rahatlatir)
-  function heavy(t) {
-    var f = /framerate=(\d+)/i.exec(t), h = /height=(\d+)/i.exec(t);
-    return (f && +f[1] > 30) || (h && +h[1] > 720);
-  }
-  ms.isTypeSupported = function (t) {
-    return (bad.test(t) || heavy(t)) ? false : orig(t);
-  };
+  ms.isTypeSupported = function (t) { return bad.test(t) ? false : orig(t); };
   var can = HTMLMediaElement.prototype.canPlayType;
   HTMLMediaElement.prototype.canPlayType = function (t) {
     return bad.test(t) ? "" : can.call(this, t);
